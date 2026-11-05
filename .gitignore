@@ -1,0 +1,22 @@
+.gradle/
+.gradle-user-home/
+.tools/
+**/build/
+local.properties
+.idea/
+*.iml
+.kotlin/
+.build-logs/
+dist/
+# IDE (VS Code Java) compiler output.
+**/bin/
+
+# Machine-specific editor settings (they hold absolute paths) and old build logs.
+.vscode/
+.wallet-design-backup/
+docs/lint-results.txt
+docs/device-tests.txt
+docs/screenshots/
+
+# Keep the Room schemas: they document every database version.
+!app/schemas/
