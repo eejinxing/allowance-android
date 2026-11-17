@@ -29,13 +29,16 @@ import java.time.YearMonth
 @Composable
 fun EntryEditor(route: String, state: AllowanceState, model: AllowanceViewModel, close: () -> Unit) {
     val parts = route.split(":", limit = 3)
+    // "prefill:<sen>:<category>:<date>:<note>" is a receipt read from a photo, opened here to be checked before it is saved.
+    val prefill = if (parts[0] == "prefill") route.split(":", limit = 5) else null
     val original = if (parts[0] == "entry") state.data.entries.find { it.id == parts.getOrNull(1) } else null
     var amount by rememberSaveable(route) { mutableStateOf(original?.let { Money(it.amountMinor).decimal() }
-        ?: if (parts[0] == "purchase") Money(parts[1].toLong()).decimal() else "") }
-    var note by rememberSaveable(route) { mutableStateOf(original?.note ?: if (parts[0] == "purchase") parts.getOrElse(2) { "" } else "") }
-    var category by rememberSaveable(route) { mutableStateOf(original?.category ?: if (parts[0] == "quick") parts[1] else if (parts[0] == "purchase") "SHOPPING" else "FOOD") }
+        ?: if (parts[0] == "purchase" || prefill != null) Money(parts[1].toLong()).decimal() else "") }
+    var note by rememberSaveable(route) { mutableStateOf(original?.note ?: if (parts[0] == "purchase") parts.getOrElse(2) { "" } else prefill?.getOrNull(4) ?: "") }
+    var category by rememberSaveable(route) { mutableStateOf(original?.category ?: if (parts[0] == "quick") parts[1] else if (parts[0] == "purchase") "SHOPPING"
+        else prefill?.getOrNull(2) ?: "FOOD") }
     var type by rememberSaveable(route) { mutableStateOf(original?.type?.name ?: "EXPENSE") }
-    var date by rememberSaveable(route) { mutableStateOf(original?.date ?: if (parts[0] == "entrydate") parts[1] else state.today.toString()) }
+    var date by rememberSaveable(route) { mutableStateOf(original?.date ?: if (parts[0] == "entrydate") parts[1] else prefill?.getOrNull(3) ?: state.today.toString()) }
     var account by rememberSaveable(route) { mutableStateOf(original?.accountId) }
     var family by rememberSaveable(route) { mutableStateOf(original?.family ?: false) }
     var confirm by remember { mutableStateOf(false) }

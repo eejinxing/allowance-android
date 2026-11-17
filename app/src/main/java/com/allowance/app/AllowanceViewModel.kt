@@ -4,6 +4,8 @@ import android.app.Application
 import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.allowance.app.ai.LocalAi
+import com.allowance.app.ai.ReceiptScanner
 import com.allowance.app.data.AllowanceRepository
 import com.allowance.app.data.AppPreferences
 import com.allowance.app.data.Preferences
@@ -42,6 +44,30 @@ class AllowanceViewModel(app: Application) : AndroidViewModel(app) {
     val events = messages.receiveAsFlow()
     private val mutex = Mutex()
     override fun onCleared() { repository.close(); super.onCleared() }
+
+    /** The assistant's optional AI (Ollama on the person's computer) and the on-device receipt reader. */
+    val ai = LocalAi(viewModelScope)
+    val scanner by lazy { ReceiptScanner(app) }
+    private var aiStarted = false
+
+    /** Connects to Ollama at [url], loads its text model, and remembers the choice for next time. */
+    fun connectOllama(url: String) {
+        viewModelScope.launch {
+            val prefs = state.value.preferences
+            val sameUrl = LocalAi.baseOf(url) == LocalAi.baseOf(prefs.ollamaUrl.ifBlank { url })
+            runCatching { ai.connect(url, if (sameUrl) prefs.ollamaModel else "", if (sameUrl) prefs.ollamaVision else "") }
+                .onSuccess { s -> runCatching { preferences.setAi("ollama", LocalAi.baseOf(url), s.model, s.vision) }; notify("Connected to Ollama") }
+                .onFailure { e -> runCatching { preferences.setAi(prefs.ai, LocalAi.baseOf(url)) }; notify(e.message ?: "Couldn’t connect to Ollama") }
+        }
+    }
+    fun disconnectAi() { ai.disconnect(); viewModelScope.launch { runCatching { preferences.setAi("") }; notify("Disconnected from Ollama") } }
+    /** Starts the AI that was turned on in Settings, once per app run. Its errors show in Settings, and the rules keep answering. */
+    fun startAi() {
+        val prefs = state.value.preferences
+        if (aiStarted || prefs.ai != "ollama" || prefs.ollamaUrl.isBlank() || ai.state.value.status != "off") return
+        aiStarted = true
+        viewModelScope.launch { runCatching { ai.connect(prefs.ollamaUrl, prefs.ollamaModel, prefs.ollamaVision) } }
+    }
 
     init {
         viewModelScope.launch {

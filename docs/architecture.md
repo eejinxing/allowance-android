@@ -60,4 +60,4 @@ Importing JSON checks size, version, IDs, account references, amounts and fund b
 
 ## Outside services
 
-The original HTML relied on a host for sign-in, a private database and AI sampling (`window.claude`). This Android version does not pretend to sign in or return AI results. The purchase advice is clearly labelled as an offline rule-based estimate, all data stays on the device and no API key is needed. Adding cloud sync or AI later would need separate authentication and a backend.
+There is no sign-in, no cloud sync and no online AI service, and no API key is needed. All data stays on the device. The budget assistant reads sentences with built-in rules and reads receipt photos with an on-device model. The only network use is optional: Settings can connect it to an Ollama server you run yourself, at the address you enter. Adding cloud sync or an online AI later would need separate authentication and a backend.

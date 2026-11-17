@@ -167,6 +167,8 @@ private fun MainContent(state: AllowanceState, model: AllowanceViewModel, snackb
     var pendingImport by remember { mutableStateOf<AppData?>(null) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    // The assistant's conversation stays while you look at other tabs, like the web app's.
+    val assistant = remember(scope) { AssistantSession(scope) }
     val exportBackup = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) scope.launch {
             runCatching { withContext(Dispatchers.IO) {
@@ -255,7 +257,7 @@ private fun MainContent(state: AllowanceState, model: AllowanceViewModel, snackb
                                     plan.days.map { c -> PaybackDay(c.date, c.cut, c.swaps.map { s -> PaybackSwap(s.swap.cheaperName, s.swap.usualName, s.swap.icon, s.saving) }) }))
                                 out
                             }
-                        }) { name, price ->
+                        }, model = model, session = assistant) { name, price ->
                             model.change("Added to your wish list") { it.copy(wishes = it.wishes + Wish(LedgerEngine.id(), name, price, state.today.toString())) }
                         }
                     }
@@ -268,7 +270,7 @@ private fun MainContent(state: AllowanceState, model: AllowanceViewModel, snackb
             val kind = current.substringBefore(":")
             val id = current.substringAfter(":", "")
             when (kind) {
-                "entry", "quick", "purchase", "entrydate" -> EntryEditor(current, state, model, close)
+                "entry", "quick", "purchase", "entrydate", "prefill" -> EntryEditor(current, state, model, close)
                 "account" -> AccountEditor(id, state, model, close)
                 "balance" -> BalanceEditor(id, state, model, close)
                 "transfer" -> TransferEditor(state, model, close)
@@ -348,6 +350,7 @@ private fun SettingsPage(state: AllowanceState, model: AllowanceViewModel, open:
                 if (state.preferences.pinEnabled) TextButton(onClick = model::lock) { Text("Lock now") }
             }
         }
+        item { AiPanel(state, model) }
         item {
             Panel {
                 SectionTitle("Data and backup")
@@ -363,7 +366,42 @@ private fun SettingsPage(state: AllowanceState, model: AllowanceViewModel, open:
             Panel {
                 SectionTitle("About Allowance")
                 Text("Offline budgeting · native Kotlin / Jetpack Compose\nVersion 1.0.0")
-                Text("The budget assistant runs rule-based estimates on your device. This version doesn’t connect to banks, sync to the cloud or use online AI.", style = MaterialTheme.typography.bodySmall)
+                Text("The budget assistant runs on your device: built-in rules, plus an optional AI on your own computer that you can connect above. This version doesn’t connect to banks, sync to the cloud or use any online AI service.", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+/** The On-device AI card: which AI is connected, or how to connect one. The same choices as the web app, except the in-browser model. */
+@Composable
+private fun AiPanel(state: AllowanceState, model: AllowanceViewModel) {
+    val ai by model.ai.state.collectAsStateWithLifecycle()
+    var url by rememberSaveable(state.preferences.ollamaUrl) { mutableStateOf(state.preferences.ollamaUrl) }
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Panel {
+        SectionTitle("On-device AI")
+        when {
+            ai.status == "loading" -> {
+                Text("Connecting to Ollama… ${Math.round(ai.progress * 100)}%")
+                Text(ai.text, style = MaterialTheme.typography.bodySmall, color = muted)
+                LinearProgressIndicator(progress = { ai.progress }, modifier = Modifier.fillMaxWidth())
+            }
+            ai.ready -> {
+                Text("Connected to Ollama on your computer. Text: ${ai.model}. Receipt photos: " +
+                    (if (ai.vision.isNotEmpty()) ai.vision else "only the reader on this phone; for a second opinion run ollama pull qwen2.5vl:3b on the computer, then press Connect again.") +
+                    " It is free and private. It reads your sentences and photos, but an amount typed in words always comes from your own words, and a receipt is only saved after you check it.")
+                if (ai.vision.isEmpty()) Button(onClick = { model.connectOllama(url.ifBlank { state.preferences.ollamaUrl }) }, modifier = Modifier.fillMaxWidth()) { Text("Connect again") }
+                OutlinedButton(onClick = model::disconnectAi, modifier = Modifier.fillMaxWidth()) { Text("Disconnect") }
+            }
+            else -> {
+                if (ai.status == "error") Text("Couldn’t start it: ${ai.error}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                Text("Make the assistant a real AI that understands loose sentences in English or 中文, and reads receipt photos with a vision model. Free, private, no account, no limits. The built-in rules stay as the backup, and receipts are always read on this phone first.")
+                Text("Ollama on your computer", fontWeight = FontWeight.Bold)
+                Text("Install Ollama (ollama.com), run ollama pull qwen2.5:3b, and start it with OLLAMA_HOST=0.0.0.0 so this phone can reach it on the same Wi-Fi. " +
+                    "Then enter the computer’s address, like http://192.168.1.20:11434 (in the Android emulator: http://10.0.2.2:11434).", style = MaterialTheme.typography.bodySmall, color = muted)
+                FormText("Ollama address", url, { url = it })
+                Button(onClick = { model.connectOllama(url) }, enabled = url.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Connect to Ollama") }
+                Text("A model that runs inside the phone itself isn’t in the Android app yet; the web app can download one.", style = MaterialTheme.typography.bodySmall, color = muted)
             }
         }
     }

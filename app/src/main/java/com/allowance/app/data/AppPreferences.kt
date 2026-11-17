@@ -15,8 +15,13 @@ import android.util.Base64
 
 private val Context.preferenceStore by preferencesDataStore(name = "allowance_preferences")
 
-/** [lastBackup] is the ISO date of the last JSON backup the person saved, or empty if they never have. */
-data class Preferences(val theme: String = "SYSTEM", val pinEnabled: Boolean = false, val lastBackup: String = "")
+/**
+ * [lastBackup] is the ISO date of the last JSON backup the person saved, or empty if they never have.
+ * [ai] is "ollama" when the assistant should connect to Ollama on the person's computer, "" when it uses the built-in rules only;
+ * [ollamaUrl], [ollamaModel] and [ollamaVision] remember the address and which models were picked there.
+ */
+data class Preferences(val theme: String = "SYSTEM", val pinEnabled: Boolean = false, val lastBackup: String = "",
+    val ai: String = "", val ollamaUrl: String = "", val ollamaModel: String = "", val ollamaVision: String = "")
 
 class AppPreferences(context: Context) {
     private val store = context.applicationContext.preferenceStore
@@ -26,7 +31,18 @@ class AppPreferences(context: Context) {
     private val failures = intPreferencesKey("pin_failures")
     private val retryAt = longPreferencesKey("pin_retry_at")
     private val lastBackup = stringPreferencesKey("last_backup")
-    val preferences = store.data.map { Preferences(it[theme] ?: "SYSTEM", it[pinHash] != null, it[lastBackup] ?: "") }
+    private val ai = stringPreferencesKey("ai")
+    private val ollamaUrl = stringPreferencesKey("ollama_url")
+    private val ollamaModel = stringPreferencesKey("ollama_model")
+    private val ollamaVision = stringPreferencesKey("ollama_vision")
+    val preferences = store.data.map {
+        Preferences(it[theme] ?: "SYSTEM", it[pinHash] != null, it[lastBackup] ?: "", it[ai] ?: "", it[ollamaUrl] ?: "", it[ollamaModel] ?: "", it[ollamaVision] ?: "")
+    }
+
+    /** Which AI the assistant uses ("ollama", or "" for the rules only) and, for Ollama, where it is and which models it picked. */
+    suspend fun setAi(kind: String, url: String? = null, model: String? = null, vision: String? = null) {
+        store.edit { p -> p[ai] = kind; url?.let { p[ollamaUrl] = it }; model?.let { p[ollamaModel] = it }; vision?.let { p[ollamaVision] = it } }
+    }
 
     suspend fun markBackup(isoDate: String) { store.edit { it[lastBackup] = isoDate } }
 
