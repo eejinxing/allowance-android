@@ -1,44 +1,42 @@
-# Allowance (Android)
+# Allowance for Android
 
-An offline budgeting app for Android, written in Kotlin and Jetpack Compose.
+Allowance shows you how much you can spend today after bills and savings. Record what you spend and see what's left. If a purchase puts you over budget, the app can spread the extra cost over the next few days and suggest cheaper swaps, like taking the bus instead of the train.
 
-It turns your income, fixed bills and savings into a daily allowance, tracks what you spend, and helps you pay back an overspend with cheaper swaps (the bus instead of the train, bread at home instead of a café breakfast). Everything stays on your phone. There is no account, no cloud and no API key.
-
-A web version of the same app lives in its own repository: [allowance-web](https://github.com/eejinxing/allowance-web). Backups are JSON and work in both.
+The app is built with Kotlin and Jetpack Compose. Your budget is stored on your phone, and you can use it offline without an account. To move your budget between Android and the [web version](https://github.com/eejinxing/allowance-web), export a JSON backup from Settings and restore it on the other version.
 
 ## The budget assistant
 
-The AI tab works like the web app's, in English, 中文 or simple Malay, typed or spoken: `Spent RM 3 on coffee` or `昨天打车花了18块` records it (with Undo), `Sneakers RM 120` checks it against your budget and shows the pay-back chart, `how much did I spend on food this month` adds it up, `save for a Japan trip RM 5000` makes a goal, `undo` / `撤销` takes back the last record.
+Open the **AI** tab and try one of these messages.
 
-- **Built-in rules** (`core/.../assistant/Nlu.kt`): always on, offline, the same rules and test cases as the web app. An amount must be written in your words; a number that counts something else ("3 km", "room 305") is never read as money.
-- **Memory** (`Memory.kt`): looks up your own past entries to pick a category and say "you usually pay about RM 4 for this".
-- **Receipt photos**: the camera button reads the total on the phone with the same ONNX model as the web app (`app/src/main/assets/receipt-reader.onnx`, run by ONNX Runtime). It only fills in an entry for you to check; nothing is saved from a photo by itself.
-- **Ollama on your computer**, optional (Settings, On-device AI): a free local model reads loose sentences, and a vision model (`qwen2.5vl:3b`) can read receipts the phone couldn't. Start Ollama with `OLLAMA_HOST=0.0.0.0` and enter the computer's address. A record is only written when the rules and the model agree (`Reader.combine`); amounts and dates always come from your words. This is the app's only network use, and only to the address you enter.
+- `Spent RM 3 on coffee` records an expense. Tap **Undo** if you need to take it back.
+- `Can I afford sneakers RM 120?` shows how the purchase would affect your budget.
+- `How much did I spend on food this month?` adds up your food expenses.
+- `Save for a Japan trip RM 5000` creates a savings goal.
 
-The web app can also download a small model into the browser; the Android app doesn't have an in-phone model yet.
+The built-in rules handle English, Chinese, and basic Malay. The assistant can use past expenses to suggest a category or show what you usually pay for an item. You can also tap the microphone to use Android's speech recognition. The app sends the transcript as soon as recognition finishes.
 
-## What you need
+Tap the camera to take a receipt photo or choose one from your phone. Allowance looks for the total on the phone. If it finds one, tap **Check and save** to review the entry before saving it.
 
-- Android Studio (or a JDK 17+) and the Android SDK Platform 36
-- An Android 8.0+ (API 26) phone or emulator
+### Connect Ollama (optional)
 
-## Run it
+If you already run Ollama on your computer, you can connect it under **Settings → On-device AI**. Start Ollama with `OLLAMA_HOST=0.0.0.0`, then enter your computer's local address in the app. A text model helps interpret more ways of phrasing a request. A vision model such as `qwen2.5vl:3b` can try receipts the phone couldn't read. When both the rules and a model return an answer, they have to agree before an expense is recorded from a message.
 
-1. Open this folder in Android Studio and let Gradle sync.
-2. Run the `app` configuration on a phone or an emulator.
+## Run the app
 
-## Check it
+Open the project in Android Studio, install Android SDK Platform 36, and let Gradle sync. Run the `app` configuration on a phone or emulator with Android 8.0 (API 26) or later. The Gradle wrapper uses JDK 21 for its daemon. The first build needs an internet connection to download Gradle and its dependencies.
+
+## Build and test
 
 ```bash
-./gradlew -PcoreOnly :core:test            # core unit tests, no Android SDK needed
-./gradlew :app:assembleDebug               # build the debug APK
-./gradlew :app:connectedDebugAndroidTest   # on-device tests, with an emulator or phone connected
+./gradlew -PcoreOnly :core:test            # Run core tests without the Android SDK
+./gradlew :app:assembleDebug               # Build the debug APK
+./gradlew :app:connectedDebugAndroidTest   # Run tests on a connected phone or emulator
 ```
 
-On Windows use `gradlew.bat`. The first build needs a network to download Gradle and the dependencies.
+On Windows, use `.\gradlew.bat` in PowerShell.
 
-## More
+## Project notes
 
 - [Architecture and money rules](docs/architecture.md)
-- [How it was verified](docs/validation.md)
+- [Test coverage and results](docs/validation.md)
 - [Developing on Windows](docs/development-windows.md)
